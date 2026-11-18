@@ -1,0 +1,23 @@
+# File sementara dan hasil kompilasi perantara
+*.o
+*.obj
+*.pch
+*.ilk
+*.pdb
+*.idb
+*.tmp
+*.bak
+*.log
+
+# Folder hasil build IDE Windows
+.vs/
+Debug/
+Release/
+x64/
+x86/
+
+# File editor dan sistem operasi
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
