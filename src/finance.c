@@ -1,174 +1,249 @@
-/* Implementasi penyimpanan, validasi, dan perhitungan transaksi. */
+/* Menyimpan transaksi, memeriksa input, dan menghitung uang. */
 #include "finance.h"
 
-#include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-/* Data transaksi disimpan dalam array paralel sesuai program dasar. */
+/* Array ini menjadi buku catatan transaksi selama aplikasi berjalan. */
 int jenis[MAX];
 int nominal[MAX];
 char keterangan[MAX][100];
 int jumlah = 0;
 
-/* Memformat nilai uang agar mudah dibaca pada kartu dan riwayat. */
-void formatRupiah(long long value, char *output, size_t outputSize)
-{
-    char digits[32];
-    char formatted[48];
-    size_t digitCount = 0;
-    size_t formattedCount = 0;
-    size_t i;
-    int negative = value < 0;
-    unsigned long long magnitude = negative
-        ? (unsigned long long)(-(value + 1)) + 1
-        : (unsigned long long)value;
+/* Tiga nilai ringkasan yang ditampilkan oleh halaman aplikasi. */
+long long totalPemasukan = 0;
+long long totalPengeluaran = 0;
+long long saldoAkhir = 0;
 
-    do {
-        digits[digitCount++] = (char)('0' + magnitude % 10);
-        magnitude /= 10;
-    } while (magnitude > 0 && digitCount < sizeof(digits));
-
-    for (i = 0; i < digitCount; i++) {
-        if (i > 0 && i % 3 == 0) formatted[formattedCount++] = '.';
-        formatted[formattedCount++] = digits[i];
-    }
-
-    if (negative) formatted[formattedCount++] = '-';
-    formatted[formattedCount] = '\0';
-
-    for (i = 0; i < formattedCount / 2; i++) {
-        char temp = formatted[i];
-        formatted[i] = formatted[formattedCount - 1 - i];
-        formatted[formattedCount - 1 - i] = temp;
-    }
-
-    snprintf(output, outputSize, "Rp%s", formatted);
-}
-
-/* Menghitung pemasukan, pengeluaran, dan saldo dari transaksi saat ini. */
-void ringkasanKeuangan(RingkasanKeuangan *ringkasan)
+/* Menghitung ulang ringkasan dengan membaca transaksi satu per satu. */
+void hitungRingkasan(void)
 {
     int i;
-    ringkasan->pemasukan = 0;
-    ringkasan->pengeluaran = 0;
+
+    totalPemasukan = 0;
+    totalPengeluaran = 0;
 
     for (i = 0; i < jumlah; i++) {
         if (jenis[i] == 1) {
-            ringkasan->pemasukan += nominal[i];
+            totalPemasukan = totalPemasukan + nominal[i];
         } else if (jenis[i] == 2) {
-            ringkasan->pengeluaran += nominal[i];
+            totalPengeluaran = totalPengeluaran + nominal[i];
         }
     }
 
-    ringkasan->saldo = ringkasan->pemasukan - ringkasan->pengeluaran;
+    saldoAkhir = totalPemasukan - totalPengeluaran;
 }
 
-/* Mengubah input desimal menjadi int tanpa menerima overflow. */
-static int parseNominal(const char *input, int *value)
+/* Membaca digit satu per satu dan menolak huruf atau angka terlalu besar. */
+static int parseNominal(char input[])
 {
-    char *end = NULL;
-    long parsed;
+    long long nilai = 0;
+    int i = 0;
 
-    if (input[0] == '\0') return 0;
-    errno = 0;
-    parsed = strtol(input, &end, 10);
-    if (errno == ERANGE || end == input || *end != '\0' || parsed > INT_MAX || parsed < INT_MIN) return 0;
-    *value = (int)parsed;
-    return 1;
-}
-
-/* Memastikan keterangan berisi setidaknya satu karakter non-spasi. */
-static int keteranganTerisi(const char *text)
-{
-    size_t i;
-    for (i = 0; text[i] != '\0'; i++) {
-        if (!isspace((unsigned char)text[i])) return 1;
+    if (input[0] == '\0') {
+        return -1;
     }
+
+    while (input[i] != '\0') {
+        int digit;
+
+        if (input[i] < '0' || input[i] > '9') {
+            return -1;
+        }
+
+        digit = input[i] - '0';
+        if (nilai > (INT_MAX - digit) / 10) {
+            return -1;
+        }
+
+        nilai = nilai * 10 + digit;
+        i++;
+    }
+
+    return (int)nilai;
+}
+
+/* Memeriksa apakah keterangan punya isi selain spasi. */
+static int keteranganTerisi(char text[])
+{
+    int i = 0;
+
+    while (text[i] != '\0') {
+        if (text[i] != ' ' && text[i] != '\t' && text[i] != '\n' &&
+            text[i] != '\r' && text[i] != '\v' && text[i] != '\f') {
+            return 1;
+        }
+        i++;
+    }
+
     return 0;
 }
 
-/* Memeriksa nominal dan keterangan yang sama-sama dibutuhkan kedua transaksi. */
-static int validasiUmum(const char *nominalText, const char *deskripsi,
-                        int *nilai, char *message, size_t messageSize)
-{
-    if (!parseNominal(nominalText, nilai)) {
-        snprintf(message, messageSize, "Input harus berupa angka!");
-        return 0;
-    }
-    if (*nilai <= 0) {
-        snprintf(message, messageSize, "Nominal harus lebih dari 0!");
-        return 0;
-    }
-    if (strlen(deskripsi) > 99) {
-        snprintf(message, messageSize, "Keterangan maksimal 99 karakter!");
-        return 0;
-    }
-    if (!keteranganTerisi(deskripsi)) {
-        snprintf(message, messageSize, "Keterangan tidak boleh kosong!");
-        return 0;
-    }
-    return 1;
-}
-
-/* Menyimpan pemasukan setelah kapasitas dan seluruh input lolos validasi. */
-int tambahPemasukan(const char *nominalText, const char *deskripsi, char *message, size_t messageSize)
+/* Memeriksa input bersama dan mengembalikan nominal, atau -1 jika gagal. */
+static int validasiUmum(char nominalText[], char deskripsi[],
+                        char message[], int messageSize)
 {
     int nilai;
+    int panjang = 0;
+
+    nilai = parseNominal(nominalText);
+    if (nilai < 0) {
+        snprintf(message, messageSize, "Input harus berupa angka!");
+        return -1;
+    }
+
+    if (nilai == 0) {
+        snprintf(message, messageSize, "Nominal harus lebih dari 0!");
+        return -1;
+    }
+
+    while (deskripsi[panjang] != '\0') {
+        panjang++;
+    }
+
+    if (panjang > 99) {
+        snprintf(message, messageSize, "Keterangan maksimal 99 karakter!");
+        return -1;
+    }
+
+    if (!keteranganTerisi(deskripsi)) {
+        snprintf(message, messageSize, "Keterangan tidak boleh kosong!");
+        return -1;
+    }
+
+    return nilai;
+}
+
+/* Menyimpan pemasukan jika kapasitas dan semua isian sudah benar. */
+int tambahPemasukan(char nominalText[], char deskripsi[], char message[], int messageSize)
+{
+    int nilai;
+    int i = 0;
 
     if (jumlah >= MAX) {
         snprintf(message, messageSize, "Data transaksi sudah penuh!");
         return 0;
     }
-    if (!validasiUmum(nominalText, deskripsi, &nilai, message, messageSize)) return 0;
+
+    nilai = validasiUmum(nominalText, deskripsi, message, messageSize);
+    if (nilai < 0) {
+        return 0;
+    }
 
     jenis[jumlah] = 1;
     nominal[jumlah] = nilai;
-    snprintf(keterangan[jumlah], sizeof(keterangan[jumlah]), "%s", deskripsi);
+
+    while (deskripsi[i] != '\0' && i < 99) {
+        keterangan[jumlah][i] = deskripsi[i];
+        i++;
+    }
+    keterangan[jumlah][i] = '\0';
+
     jumlah++;
     snprintf(message, messageSize, "Pemasukan berhasil ditambahkan!");
     return 1;
 }
 
-/* Memeriksa saldo tersedia sebelum menyimpan pengeluaran. */
-int tambahPengeluaran(const char *nominalText, const char *deskripsi, char *message, size_t messageSize)
+/* Memastikan saldo cukup sebelum menyimpan pengeluaran. */
+int tambahPengeluaran(char nominalText[], char deskripsi[], char message[], int messageSize)
 {
-    RingkasanKeuangan ringkasan;
     int nilai;
+    int i = 0;
 
-    ringkasanKeuangan(&ringkasan);
+    hitungRingkasan();
+
     if (jumlah >= MAX) {
         snprintf(message, messageSize, "Data transaksi sudah penuh!");
         return 0;
     }
-    if (!parseNominal(nominalText, &nilai)) {
+
+    nilai = parseNominal(nominalText);
+    if (nilai < 0) {
         snprintf(message, messageSize, "Input harus berupa angka!");
         return 0;
     }
-    if (nilai <= 0) {
+
+    if (nilai == 0) {
         snprintf(message, messageSize, "Nominal harus lebih dari 0!");
         return 0;
     }
-    if ((long long)nilai > ringkasan.saldo) {
+
+    if ((long long)nilai > saldoAkhir) {
         snprintf(message, messageSize, "Pengeluaran gagal! Saldo tidak mencukupi.");
         return 0;
     }
-    if (strlen(deskripsi) > 99) {
+
+    while (deskripsi[i] != '\0') {
+        i++;
+    }
+    if (i > 99) {
         snprintf(message, messageSize, "Keterangan maksimal 99 karakter!");
         return 0;
     }
+
     if (!keteranganTerisi(deskripsi)) {
         snprintf(message, messageSize, "Keterangan tidak boleh kosong!");
         return 0;
     }
 
+    i = 0;
     jenis[jumlah] = 2;
     nominal[jumlah] = nilai;
-    snprintf(keterangan[jumlah], sizeof(keterangan[jumlah]), "%s", deskripsi);
+    while (deskripsi[i] != '\0' && i < 99) {
+        keterangan[jumlah][i] = deskripsi[i];
+        i++;
+    }
+    keterangan[jumlah][i] = '\0';
+
     jumlah++;
     snprintf(message, messageSize, "Pengeluaran berhasil ditambahkan!");
     return 1;
+}
+
+/* Menulis angka sebagai Rupiah dan menambahkan titik tiap tiga digit. */
+void formatRupiah(long long value, char output[], int outputSize)
+{
+    char digits[32];
+    char formatted[48];
+    unsigned long long nilai;
+    int digitCount = 0;
+    int formattedCount = 0;
+    int i;
+    int negatif = 0;
+
+    if (value < 0) {
+        negatif = 1;
+        nilai = (unsigned long long)(-(value + 1)) + 1;
+    } else {
+        nilai = (unsigned long long)value;
+    }
+
+    do {
+        digits[digitCount] = (char)('0' + nilai % 10);
+        digitCount++;
+        nilai = nilai / 10;
+    } while (nilai > 0 && digitCount < 32);
+
+    for (i = 0; i < digitCount; i++) {
+        if (i > 0 && i % 3 == 0) {
+            formatted[formattedCount] = '.';
+            formattedCount++;
+        }
+        formatted[formattedCount] = digits[i];
+        formattedCount++;
+    }
+
+    if (negatif == 1) {
+        formatted[formattedCount] = '-';
+        formattedCount++;
+    }
+    formatted[formattedCount] = '\0';
+
+    for (i = 0; i < formattedCount / 2; i++) {
+        char sementara = formatted[i];
+        formatted[i] = formatted[formattedCount - 1 - i];
+        formatted[formattedCount - 1 - i] = sementara;
+    }
+
+    snprintf(output, outputSize, "Rp%s", formatted);
 }

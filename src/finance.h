@@ -1,34 +1,30 @@
-/* Kontrak data transaksi dan fungsi perhitungan keuangan aplikasi. */
+/* Daftar data dan fungsi keuangan yang dipakai oleh aplikasi. */
 #ifndef FINANCE_H
 #define FINANCE_H
 
-#include <stddef.h>
-
 #define MAX 100
 
-/* Array paralel yang menyimpan tipe, nominal, dan keterangan transaksi. */
+/* Data transaksi disimpan dalam tiga array dengan nomor baris yang sama. */
 extern int jenis[MAX];
 extern int nominal[MAX];
 extern char keterangan[MAX][100];
 extern int jumlah;
 
-/* Hasil perhitungan pemasukan, pengeluaran, dan saldo akhir. */
-typedef struct {
-    long long pemasukan;
-    long long pengeluaran;
-    long long saldo;
-} RingkasanKeuangan;
+/* Hasil ringkasan dihitung ulang dari seluruh transaksi. */
+extern long long totalPemasukan;
+extern long long totalPengeluaran;
+extern long long saldoAkhir;
 
-/* Menghitung total keuangan berdasarkan seluruh transaksi yang tersimpan. */
-void ringkasanKeuangan(RingkasanKeuangan *ringkasan);
+/* Menghitung total pemasukan, pengeluaran, dan saldo akhir. */
+void hitungRingkasan(void);
 
-/* Memvalidasi lalu menambahkan satu transaksi pemasukan. */
-int tambahPemasukan(const char *nominalText, const char *deskripsi, char *message, size_t messageSize);
+/* Memeriksa input lalu menyimpan satu transaksi pemasukan. */
+int tambahPemasukan(char nominalText[], char deskripsi[], char message[], int messageSize);
 
-/* Memvalidasi saldo lalu menambahkan satu transaksi pengeluaran. */
-int tambahPengeluaran(const char *nominalText, const char *deskripsi, char *message, size_t messageSize);
+/* Memeriksa saldo dan input lalu menyimpan satu transaksi pengeluaran. */
+int tambahPengeluaran(char nominalText[], char deskripsi[], char message[], int messageSize);
 
 /* Mengubah angka menjadi teks Rupiah dengan pemisah ribuan. */
-void formatRupiah(long long value, char *output, size_t outputSize);
+void formatRupiah(long long value, char output[], int outputSize);
 
 #endif

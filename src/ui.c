@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "raylib.h"
 #include "raymath.h"
@@ -15,9 +14,27 @@
 #include "raygui.h"
 #pragma GCC diagnostic pop
 
-/* Mengatur ukuran jendela dan batas tampilan aplikasi. */
+/* Ukuran jendela aplikasi. */
 #define WINDOW_WIDTH 450
 #define WINDOW_HEIGHT 800
+
+/* Angka pengenal untuk kolom input yang sedang aktif. */
+#define FIELD_NONE 0
+#define FIELD_NOMINAL 1
+#define FIELD_KETERANGAN 2
+
+/* Angka pengenal untuk halaman yang sedang dibuka. */
+#define PAGE_SUMMARY 0
+#define PAGE_HISTORY 1
+
+/* Nomor yang dipakai tombol untuk memilih nilai animasi masing-masing. */
+#define HOVER_EXIT 1
+#define HOVER_INCOME 2
+#define HOVER_EXPENSE 3
+#define HOVER_MODAL_CANCEL 4
+#define HOVER_MODAL_SAVE 5
+#define HOVER_EXIT_BACK 6
+#define HOVER_EXIT_CONFIRM 7
 
 /* Menyimpan warna utama agar konsisten dengan tema Moniyers. */
 static const Color COLOR_PAGE = {247, 249, 248, 255};
@@ -56,43 +73,32 @@ static float hoverExitConfirm;
 static float hoverSummaryTab;
 static float hoverHistoryTab;
 
-enum {
-    FIELD_NONE,
-    FIELD_NOMINAL,
-    FIELD_KETERANGAN
-};
-
-enum {
-    PAGE_SUMMARY,
-    PAGE_HISTORY
-};
-
 /* Menggambar teks dengan font Inter agar hasilnya halus pada ukuran kecil. */
-static void drawText(const char *text, float x, float y, float size, Color color)
+static void drawText(const char text[], float x, float y, float size, Color color)
 {
     DrawTextEx(appFont, text, (Vector2){x, y}, size, 0.4f, color);
 }
 
 /* Mengukur lebar teks untuk perataan dan posisi nilai. */
-static float measureText(const char *text, float size)
+static float measureText(const char text[], float size)
 {
     return MeasureTextEx(appFont, text, size, 0.4f).x;
 }
 
 /* Menggambar teks tepat di tengah area yang disediakan. */
-static void drawTextCentered(const char *text, float x, float y, float width, float size, Color color)
+static void drawTextCentered(const char text[], float x, float y, float width, float size, Color color)
 {
     drawText(text, x + (width - measureText(text, size)) / 2.0f, y, size, color);
 }
 
 /* Menggambar teks dengan sisi kanan sejajar pada koordinat tertentu. */
-static void drawTextRight(const char *text, float right, float y, float size, Color color)
+static void drawTextRight(const char text[], float right, float y, float size, Color color)
 {
     drawText(text, right - measureText(text, size), y, size, color);
 }
 
 /* Menyimpan pesan validasi terakhir dan jenis warnanya. */
-static void setStatus(const char *message, int kind)
+static void setStatus(const char message[], int kind)
 {
     snprintf(statusMessage, sizeof(statusMessage), "%s", message);
     statusKind = kind;
@@ -127,22 +133,55 @@ static Color lerpColor(Color start, Color end, float amount)
     };
 }
 
+/* Mengambil nilai animasi hover tombol berdasarkan nomor tombolnya. */
+static float getButtonHover(int buttonId)
+{
+    if (buttonId == HOVER_EXIT) return hoverExit;
+    if (buttonId == HOVER_INCOME) return hoverIncome;
+    if (buttonId == HOVER_EXPENSE) return hoverExpense;
+    if (buttonId == HOVER_MODAL_CANCEL) return hoverModalCancel;
+    if (buttonId == HOVER_MODAL_SAVE) return hoverModalSave;
+    if (buttonId == HOVER_EXIT_BACK) return hoverExitBack;
+    return hoverExitConfirm;
+}
+
+/* Menyimpan nilai animasi hover tombol tanpa memakai pointer. */
+static void setButtonHover(int buttonId, float value)
+{
+    if (buttonId == HOVER_EXIT) hoverExit = value;
+    else if (buttonId == HOVER_INCOME) hoverIncome = value;
+    else if (buttonId == HOVER_EXPENSE) hoverExpense = value;
+    else if (buttonId == HOVER_MODAL_CANCEL) hoverModalCancel = value;
+    else if (buttonId == HOVER_MODAL_SAVE) hoverModalSave = value;
+    else if (buttonId == HOVER_EXIT_BACK) hoverExitBack = value;
+    else hoverExitConfirm = value;
+}
+
 /* Menggambar tombol dengan transisi hover dan klik berbasis koordinat Raylib. */
-static int drawButton(Rectangle bounds, const char *label, Color fill, Color textColor,
-                      float fontSize, float *hoverProgress)
+static int drawButton(Rectangle bounds, const char label[], Color fill, Color textColor,
+                      float fontSize, int buttonId)
 {
     bool hovered = CheckCollisionPointRec(GetMousePosition(), bounds);
-    Color hoverColor = {
-        (unsigned char)(fill.r > 240 ? 255 : fill.r + 15),
-        (unsigned char)(fill.g > 240 ? 255 : fill.g + 15),
-        (unsigned char)(fill.b > 240 ? 255 : fill.b + 15),
-        fill.a
-    };
+    Color hoverColor;
+    float hoverProgress = getButtonHover(buttonId);
     float lerpAmount = Clamp(GetFrameTime() * 12.0f, 0.0f, 1.0f);
 
-    *hoverProgress = Lerp(*hoverProgress, hovered ? 1.0f : 0.0f, lerpAmount);
+    if (fill.r > 240) hoverColor.r = 255;
+    else hoverColor.r = (unsigned char)(fill.r + 15);
+    if (fill.g > 240) hoverColor.g = 255;
+    else hoverColor.g = (unsigned char)(fill.g + 15);
+    if (fill.b > 240) hoverColor.b = 255;
+    else hoverColor.b = (unsigned char)(fill.b + 15);
+    hoverColor.a = fill.a;
 
-    drawRounded(bounds, 0.27f, lerpColor(fill, hoverColor, *hoverProgress), fill, 1);
+    if (hovered) {
+        hoverProgress = Lerp(hoverProgress, 1.0f, lerpAmount);
+    } else {
+        hoverProgress = Lerp(hoverProgress, 0.0f, lerpAmount);
+    }
+
+    setButtonHover(buttonId, hoverProgress);
+    drawRounded(bounds, 0.27f, lerpColor(fill, hoverColor, hoverProgress), fill, 1);
     drawTextCentered(label, bounds.x, bounds.y + (bounds.height - fontSize) / 2.0f - 1.0f,
                      bounds.width, fontSize, textColor);
     return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
@@ -166,7 +205,7 @@ static void drawHeader(void)
     drawText("Catatan Keuangan Harian", 70, 46, 12, COLOR_MUTED);
     if (modalMode == 0 && !showExitDialog &&
         drawButton((Rectangle){376, 23, 57, 34}, "Keluar", COLOR_SURFACE, COLOR_MUTED, 11,
-                   &hoverExit)) {
+                   HOVER_EXIT)) {
         showExitDialog = true;
     }
 }
@@ -202,18 +241,29 @@ static void drawBottomNavigation(bool interactive)
     float lerpAmount = Clamp(GetFrameTime() * 12.0f, 0.0f, 1.0f);
     Color activeFill = {230, 246, 242, 255};
     Color inactiveFill = COLOR_SURFACE;
-    Color leftBase = activePage == PAGE_SUMMARY ? activeFill : inactiveFill;
-    Color rightBase = activePage == PAGE_HISTORY ? activeFill : inactiveFill;
-    Color leftInk = activePage == PAGE_SUMMARY ? COLOR_PRIMARY_DARK : COLOR_MUTED;
-    Color rightInk = activePage == PAGE_HISTORY ? COLOR_PRIMARY_DARK : COLOR_MUTED;
+    Color leftBase = inactiveFill;
+    Color rightBase = inactiveFill;
+    Color leftInk = COLOR_MUTED;
+    Color rightInk = COLOR_MUTED;
     bool leftHovered = CheckCollisionPointRec(mouse, leftHitbox);
     bool rightHovered = CheckCollisionPointRec(mouse, rightHitbox);
+
+    if (activePage == PAGE_SUMMARY) {
+        leftBase = activeFill;
+        leftInk = COLOR_PRIMARY_DARK;
+    }
+    if (activePage == PAGE_HISTORY) {
+        rightBase = activeFill;
+        rightInk = COLOR_PRIMARY_DARK;
+    }
 
     DrawRectangle(0, 730, WINDOW_WIDTH, 70, COLOR_SURFACE);
     DrawLine(0, 730, WINDOW_WIDTH, 730, COLOR_BORDER);
 
-    hoverSummaryTab = Lerp(hoverSummaryTab, leftHovered ? 1.0f : 0.0f, lerpAmount);
-    hoverHistoryTab = Lerp(hoverHistoryTab, rightHovered ? 1.0f : 0.0f, lerpAmount);
+    if (leftHovered) hoverSummaryTab = Lerp(hoverSummaryTab, 1.0f, lerpAmount);
+    else hoverSummaryTab = Lerp(hoverSummaryTab, 0.0f, lerpAmount);
+    if (rightHovered) hoverHistoryTab = Lerp(hoverHistoryTab, 1.0f, lerpAmount);
+    else hoverHistoryTab = Lerp(hoverHistoryTab, 0.0f, lerpAmount);
     drawRounded(leftPill, 0.22f, lerpColor(leftBase, activeFill, hoverSummaryTab), leftBase, 0.5f);
     drawRounded(rightPill, 0.22f, lerpColor(rightBase, activeFill, hoverHistoryTab), rightBase, 0.5f);
 
@@ -233,7 +283,7 @@ static void drawBottomNavigation(bool interactive)
 }
 
 /* Menggambar saldo akhir, total masuk, total keluar, dan kapasitas data. */
-static void drawSummaryCard(const RingkasanKeuangan *ringkasan, float y)
+static void drawSummaryCard(float y)
 {
     Rectangle card = {18, y, 414, 202};
     char balanceText[64];
@@ -241,9 +291,9 @@ static void drawSummaryCard(const RingkasanKeuangan *ringkasan, float y)
     char expenseText[64];
     char countText[48];
 
-    formatRupiah(ringkasan->saldo, balanceText, sizeof(balanceText));
-    formatRupiah(ringkasan->pemasukan, incomeText, sizeof(incomeText));
-    formatRupiah(ringkasan->pengeluaran, expenseText, sizeof(expenseText));
+    formatRupiah(saldoAkhir, balanceText, sizeof(balanceText));
+    formatRupiah(totalPemasukan, incomeText, sizeof(incomeText));
+    formatRupiah(totalPengeluaran, expenseText, sizeof(expenseText));
     snprintf(countText, sizeof(countText), "%d / %d transaksi", jumlah, MAX);
 
     DrawRectangleRounded((Rectangle){card.x, card.y + 3, card.width, card.height},
@@ -272,11 +322,18 @@ static void drawSummaryCard(const RingkasanKeuangan *ringkasan, float y)
 /* Menampilkan status transaksi dengan warna sukses, gagal, atau netral. */
 static void drawStatusBanner(float y)
 {
-    Color tint = statusKind > 0 ? (Color){226, 246, 235, 255} :
-                 statusKind < 0 ? (Color){255, 235, 235, 255} : (Color){233, 245, 242, 255};
-    Color accent = statusKind > 0 ? COLOR_INCOME : statusKind < 0 ? COLOR_EXPENSE : COLOR_PRIMARY_DARK;
+    Color tint = {233, 245, 242, 255};
+    Color accent = COLOR_PRIMARY_DARK;
 
     if (!statusVisible) return;
+
+    if (statusKind > 0) {
+        tint = (Color){226, 246, 235, 255};
+        accent = COLOR_INCOME;
+    } else if (statusKind < 0) {
+        tint = (Color){255, 235, 235, 255};
+        accent = COLOR_EXPENSE;
+    }
 
     drawRounded((Rectangle){18, y, 414, 43}, 0.25f, tint, tint, 0.5f);
     DrawCircle(36, (int)y + 21, 4, accent);
@@ -288,8 +345,12 @@ static void drawTransactionList(Rectangle area, int firstIndex, int itemCount, b
 {
     int i;
     float contentHeight = (float)itemCount * 72.0f;
-    float maxScroll = contentHeight > area.height - 12 ? contentHeight - area.height + 12 : 0.0f;
+    float maxScroll = 0.0f;
     Vector2 mouse = GetMousePosition();
+
+    if (contentHeight > area.height - 12) {
+        maxScroll = contentHeight - area.height + 12;
+    }
 
     if (scrollable && CheckCollisionPointRec(mouse, area)) {
         historyScroll -= GetMouseWheelMove() * 48.0f;
@@ -310,14 +371,27 @@ static void drawTransactionList(Rectangle area, int firstIndex, int itemCount, b
     } else {
         for (i = 0; i < itemCount; i++) {
             int transactionIndex = firstIndex + i;
-            float itemY = area.y + 8.0f + (float)i * 72.0f - (scrollable ? historyScroll : 0.0f);
+            float itemY = area.y + 8.0f + (float)i * 72.0f;
             Rectangle item = {area.x + 8, itemY, area.width - 16, 64};
-            Color kindColor = jenis[transactionIndex] == 1 ? COLOR_INCOME : COLOR_EXPENSE;
-            Color kindTint = jenis[transactionIndex] == 1 ? (Color){232, 247, 238, 255} : (Color){255, 237, 236, 255};
+            Color kindColor = COLOR_EXPENSE;
+            Color kindTint = {255, 237, 236, 255};
+            const char *kindLabel = "Pengeluaran";
+            const char *sign = "-";
             char amountText[64];
             char signedAmount[72];
             char indexLabel[16];
             int amountWidth;
+
+            if (scrollable) {
+                itemY = itemY - historyScroll;
+                item.y = itemY;
+            }
+            if (jenis[transactionIndex] == 1) {
+                kindColor = COLOR_INCOME;
+                kindTint = (Color){232, 247, 238, 255};
+                kindLabel = "Pemasukan";
+                sign = "+";
+            }
 
             if (itemY + item.height < area.y || itemY > area.y + area.height) continue;
             DrawRectangleRounded((Rectangle){item.x, item.y + 2, item.width, item.height},
@@ -327,12 +401,10 @@ static void drawTransactionList(Rectangle area, int firstIndex, int itemCount, b
             snprintf(indexLabel, sizeof(indexLabel), "#%d", transactionIndex + 1);
             drawTextCentered(indexLabel, item.x + 8, item.y + 17, 30, 11, kindColor);
 
-            drawText(jenis[transactionIndex] == 1 ? "Pemasukan" : "Pengeluaran",
-                     item.x + 47, item.y + 9, 12, kindColor);
+            drawText(kindLabel, item.x + 47, item.y + 9, 12, kindColor);
             drawText(keterangan[transactionIndex], item.x + 47, item.y + 34, 12, COLOR_MUTED);
             formatRupiah(nominal[transactionIndex], amountText, sizeof(amountText));
-            snprintf(signedAmount, sizeof(signedAmount), "%s%s",
-                     jenis[transactionIndex] == 1 ? "+" : "-", amountText);
+            snprintf(signedAmount, sizeof(signedAmount), "%s%s", sign, amountText);
             amountWidth = (int)measureText(signedAmount, 12);
             drawText(signedAmount, item.x + item.width - amountWidth - 10, item.y + 12, 12, kindColor);
         }
@@ -353,9 +425,13 @@ static void openModal(int mode)
 }
 
 /* Menghapus satu karakter terakhir, termasuk satu karakter UTF-8 utuh. */
-static void hapusKarakterTerakhir(char *text)
+static void hapusKarakterTerakhir(char text[])
 {
-    size_t length = strlen(text);
+    int length = 0;
+
+    while (text[length] != '\0') {
+        length++;
+    }
     if (length == 0) return;
 
     length--;
@@ -366,29 +442,37 @@ static void hapusKarakterTerakhir(char *text)
 /* Menambahkan karakter yang sesuai dengan kolom aktif dan kapasitasnya. */
 static void tambahKarakter(int codepoint)
 {
-    char *target;
     const char *encoded;
-    size_t capacity;
-    size_t length;
+    int length;
+    int i;
     int encodedLength;
 
     if (codepoint < 32 || codepoint == 127) return;
     if (focusedField == FIELD_NOMINAL) {
         if (codepoint < '0' || codepoint > '9') return;
-        target = nominalInput;
-        capacity = sizeof(nominalInput);
-    } else if (focusedField == FIELD_KETERANGAN) {
-        target = keteranganInput;
-        capacity = sizeof(keteranganInput);
-    } else {
+    } else if (focusedField != FIELD_KETERANGAN) {
         return;
     }
 
-    length = strlen(target);
     encoded = CodepointToUTF8(codepoint, &encodedLength);
-    if (encodedLength > 0 && length + (size_t)encodedLength < capacity) {
-        memcpy(target + length, encoded, (size_t)encodedLength);
-        target[length + (size_t)encodedLength] = '\0';
+    if (focusedField == FIELD_NOMINAL) {
+        length = 0;
+        while (nominalInput[length] != '\0') length++;
+        if (encodedLength > 0 && length + encodedLength < (int)sizeof(nominalInput)) {
+            for (i = 0; i < encodedLength; i++) {
+                nominalInput[length + i] = encoded[i];
+            }
+            nominalInput[length + encodedLength] = '\0';
+        }
+    } else {
+        length = 0;
+        while (keteranganInput[length] != '\0') length++;
+        if (encodedLength > 0 && length + encodedLength < (int)sizeof(keteranganInput)) {
+            for (i = 0; i < encodedLength; i++) {
+                keteranganInput[length + i] = encoded[i];
+            }
+            keteranganInput[length + encodedLength] = '\0';
+        }
     }
 }
 
@@ -396,7 +480,7 @@ static void tambahKarakter(int codepoint)
 static void pasteClipboard(void)
 {
     const char *clipboard = GetClipboardText();
-    size_t i;
+    int i;
     if (clipboard == NULL) return;
 
     for (i = 0; clipboard[i] != '\0'; i++) {
@@ -404,7 +488,7 @@ static void pasteClipboard(void)
         int codepoint = GetCodepoint(clipboard + i, &byteLength);
         if (byteLength <= 0) break;
         tambahKarakter(codepoint);
-        i += (size_t)byteLength - 1;
+        i += byteLength - 1;
     }
 }
 
@@ -412,13 +496,20 @@ static void pasteClipboard(void)
 static void simpanTransaksi(void)
 {
     char message[128];
-    int success = modalMode == 1
-        ? tambahPemasukan(nominalInput, keteranganInput, message, sizeof(message))
-        : tambahPengeluaran(nominalInput, keteranganInput, message, sizeof(message));
+    int success;
 
-    setStatus(message, success ? 1 : -1);
+    if (modalMode == 1) {
+        success = tambahPemasukan(nominalInput, keteranganInput, message, sizeof(message));
+    } else {
+        success = tambahPengeluaran(nominalInput, keteranganInput, message, sizeof(message));
+    }
+
+    if (success) setStatus(message, 1);
+    else setStatus(message, -1);
+
     snprintf(modalMessage, sizeof(modalMessage), "%s", message);
-    modalKind = success ? 1 : -1;
+    if (success) modalKind = 1;
+    else modalKind = -1;
     if (success) {
         modalMode = 0;
         focusedField = FIELD_NONE;
@@ -438,8 +529,13 @@ static void processModalInput(void)
     bool pasted = false;
 
     if (modalMode == 0) return;
-    nominalBox = (Rectangle){54, modalMode == 2 ? 341 : 310, 342, 42};
-    descriptionBox = (Rectangle){54, modalMode == 2 ? 411 : 380, 342, 42};
+    if (modalMode == 2) {
+        nominalBox = (Rectangle){54, 341, 342, 42};
+        descriptionBox = (Rectangle){54, 411, 342, 42};
+    } else {
+        nominalBox = (Rectangle){54, 310, 342, 42};
+        descriptionBox = (Rectangle){54, 380, 342, 42};
+    }
     mouse = GetMousePosition();
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -459,14 +555,22 @@ static void processModalInput(void)
         pasted = true;
     }
     if (focusedField != FIELD_NONE && IsKeyPressed(KEY_BACKSPACE)) {
-        hapusKarakterTerakhir(focusedField == FIELD_NOMINAL ? nominalInput : keteranganInput);
+        if (focusedField == FIELD_NOMINAL) {
+            hapusKarakterTerakhir(nominalInput);
+        } else {
+            hapusKarakterTerakhir(keteranganInput);
+        }
     }
 
     while ((codepoint = GetCharPressed()) > 0) {
         if (!pasted) tambahKarakter(codepoint);
     }
     if (focusedField != FIELD_NONE && IsKeyPressed(KEY_TAB)) {
-        focusedField = focusedField == FIELD_NOMINAL ? FIELD_KETERANGAN : FIELD_NOMINAL;
+        if (focusedField == FIELD_NOMINAL) {
+            focusedField = FIELD_KETERANGAN;
+        } else {
+            focusedField = FIELD_NOMINAL;
+        }
     }
     if (IsKeyPressed(KEY_ENTER)) {
         if (focusedField == FIELD_NOMINAL) {
@@ -478,10 +582,16 @@ static void processModalInput(void)
 }
 
 /* Menggambar kotak input Raygui dan indikator fokus kursor. */
-static void drawTextBox(Rectangle bounds, char *text, int field)
+static void drawTextBox(Rectangle bounds, char text[], int field)
 {
     float cursorX;
-    int characterLimit = field == FIELD_NOMINAL ? (int)sizeof(nominalInput) : (int)sizeof(keteranganInput);
+    int characterLimit;
+
+    if (field == FIELD_NOMINAL) {
+        characterLimit = (int)sizeof(nominalInput);
+    } else {
+        characterLimit = (int)sizeof(keteranganInput);
+    }
 
     GuiTextBox(bounds, text, characterLimit, false);
     if (focusedField != field) return;
@@ -494,23 +604,38 @@ static void drawTextBox(Rectangle bounds, char *text, int field)
 }
 
 /* Menampilkan modal input sesuai jenis transaksi dan saldo tersedia. */
-static void drawModal(const RingkasanKeuangan *ringkasan)
+static void drawModal(void)
 {
     Rectangle modal = {30, 216, 390, 370};
-    int nominalLabelY = modalMode == 2 ? 322 : 291;
-    int descriptionLabelY = modalMode == 2 ? 392 : 361;
-    Rectangle nominalBox = {54, (float)(nominalLabelY + 19), 342, 42};
-    Rectangle descriptionBox = {54, (float)(descriptionLabelY + 19), 342, 42};
-    Color submitColor = modalMode == 1 ? COLOR_PRIMARY : COLOR_EXPENSE;
+    int nominalLabelY;
+    int descriptionLabelY;
+    Rectangle nominalBox = {54, 310, 342, 42};
+    Rectangle descriptionBox = {54, 380, 342, 42};
+    Color submitColor;
+    const char *title;
+
+    if (modalMode == 2) {
+        nominalLabelY = 322;
+        descriptionLabelY = 392;
+        submitColor = COLOR_EXPENSE;
+        title = "Tambah Pengeluaran";
+    } else {
+        nominalLabelY = 291;
+        descriptionLabelY = 361;
+        submitColor = COLOR_PRIMARY;
+        title = "Tambah Pemasukan";
+    }
+    nominalBox.y = (float)(nominalLabelY + 19);
+    descriptionBox.y = (float)(descriptionLabelY + 19);
 
     DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, Fade(BLACK, overlayAlpha));
     drawRounded(modal, 0.07f, COLOR_SURFACE, COLOR_BORDER, 1);
-    drawText(modalMode == 1 ? "Tambah Pemasukan" : "Tambah Pengeluaran", 54, 236, 22, COLOR_TEXT);
+    drawText(title, 54, 236, 22, COLOR_TEXT);
     drawText("Catat transaksi keuanganmu", 54, 267, 12, COLOR_MUTED);
 
     if (modalMode == 2) {
         char availableText[64];
-        formatRupiah(ringkasan->saldo, availableText, sizeof(availableText));
+        formatRupiah(saldoAkhir, availableText, sizeof(availableText));
         drawRounded((Rectangle){54, 286, 342, 27}, 0.25f, (Color){232, 247, 244, 255},
                     (Color){232, 247, 244, 255}, 0.5f);
         drawText(TextFormat("Saldo tersedia: %s", availableText), 65, 291, 12, COLOR_PRIMARY_DARK);
@@ -522,32 +647,37 @@ static void drawModal(const RingkasanKeuangan *ringkasan)
     drawTextBox(descriptionBox, keteranganInput, FIELD_KETERANGAN);
 
     if (modalMessage[0] != '\0') {
-        Color messageColor = modalKind > 0 ? COLOR_INCOME : COLOR_EXPENSE;
+        Color messageColor;
+        if (modalKind > 0) messageColor = COLOR_INCOME;
+        else messageColor = COLOR_EXPENSE;
         drawText(modalMessage, 54, 466, 11, messageColor);
     } else {
         drawText("Ketik nominal dan keterangan, lalu pilih Simpan.", 54, 466, 11, COLOR_MUTED);
     }
 
     if (drawButton((Rectangle){54, 518, 157, 43}, "Batal", (Color){241, 245, 243, 255},
-                   COLOR_MUTED, 14, &hoverModalCancel)) {
+                   COLOR_MUTED, 14, HOVER_MODAL_CANCEL)) {
         modalMode = 0;
         focusedField = FIELD_NONE;
     }
     if (drawButton((Rectangle){239, 518, 157, 43}, "Simpan", submitColor, WHITE, 14,
-                   &hoverModalSave)) {
+                   HOVER_MODAL_SAVE)) {
         simpanTransaksi();
     }
 }
 
 /* Menampilkan ringkasan dan tiga transaksi terakhir. */
-static void drawSummaryPage(const RingkasanKeuangan *ringkasan)
+static void drawSummaryPage(void)
 {
-    int itemCount = jumlah < 3 ? jumlah : 3;
-    int firstIndex = jumlah - itemCount;
+    int itemCount;
+    int firstIndex;
     char countText[32];
 
+    if (jumlah < 3) itemCount = jumlah;
+    else itemCount = 3;
+    firstIndex = jumlah - itemCount;
     drawStatusBanner(137);
-    drawSummaryCard(ringkasan, 190);
+    drawSummaryCard(190);
     drawText("Transaksi terbaru", 22, 412, 17, COLOR_TEXT);
     snprintf(countText, sizeof(countText), "%d transaksi", jumlah);
     drawTextRight(countText, 426, 417, 11, COLOR_MUTED);
@@ -570,6 +700,7 @@ static void drawHistoryPage(void)
 static void drawExitDialog(void)
 {
     Rectangle dialog = {55, 302, 340, 196};
+    float closeButtonX;
 
     DrawRectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, Fade(BLACK, overlayAlpha));
     drawRounded(dialog, 0.08f, COLOR_SURFACE, COLOR_BORDER, 1);
@@ -579,15 +710,13 @@ static void drawExitDialog(void)
     if (!windowCloseRequested &&
         drawButton((Rectangle){dialog.x + 22, dialog.y + 124, 138, 42},
                    "Kembali", (Color){241, 245, 243, 255}, COLOR_MUTED, 13,
-                   &hoverExitBack)) {
+                   HOVER_EXIT_BACK)) {
         showExitDialog = false;
     }
-    if (drawButton((Rectangle){
-            windowCloseRequested ? dialog.x + 101 : dialog.x + 180,
-            dialog.y + 124,
-            138,
-            42
-        }, "Tutup", COLOR_PRIMARY, WHITE, 13, &hoverExitConfirm)) {
+    if (windowCloseRequested) closeButtonX = dialog.x + 101;
+    else closeButtonX = dialog.x + 180;
+    if (drawButton((Rectangle){closeButtonX, dialog.y + 124, 138, 42},
+                   "Tutup", COLOR_PRIMARY, WHITE, 13, HOVER_EXIT_CONFIRM)) {
         shouldClose = true;
     }
 }
@@ -609,7 +738,6 @@ static void configureRaygui(void)
 /* Membuat jendela, memuat font, memperbarui tampilan, lalu membersihkan resource. */
 int jalankanAplikasi(void)
 {
-    RingkasanKeuangan ringkasan;
     char fontPath[512];
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -641,10 +769,11 @@ int jalankanAplikasi(void)
             windowCloseRequested = true;
             showExitDialog = true;
         }
-        targetOverlay = modalMode != 0 || showExitDialog ? 0.62f : 0.0f;
+        if (modalMode != 0 || showExitDialog) targetOverlay = 0.62f;
+        else targetOverlay = 0.0f;
         overlayAlpha = Lerp(overlayAlpha, targetOverlay,
                             Clamp(GetFrameTime() * 10.0f, 0.0f, 1.0f));
-        ringkasanKeuangan(&ringkasan);
+        hitungRingkasan();
         if (modalMode != 0 && !windowCloseRequested) processModalInput();
 
         BeginDrawing();
@@ -653,22 +782,22 @@ int jalankanAplikasi(void)
 
         if (modalMode == 0 && !showExitDialog) {
             if (drawButton((Rectangle){18, 82, 200, 46}, "+ Pemasukan",
-                           COLOR_PRIMARY, WHITE, 15, &hoverIncome)) {
+                           COLOR_PRIMARY, WHITE, 15, HOVER_INCOME)) {
                 openModal(1);
             }
             if (drawButton((Rectangle){232, 82, 200, 46}, "- Pengeluaran",
-                           COLOR_EXPENSE, WHITE, 15, &hoverExpense)) {
+                           COLOR_EXPENSE, WHITE, 15, HOVER_EXPENSE)) {
                 openModal(2);
             }
         }
 
         if (activePage == PAGE_SUMMARY) {
-            drawSummaryPage(&ringkasan);
+            drawSummaryPage();
         } else {
             drawHistoryPage();
         }
         drawBottomNavigation(modalMode == 0 && !showExitDialog);
-        if (modalMode != 0) drawModal(&ringkasan);
+        if (modalMode != 0) drawModal();
         if (showExitDialog) drawExitDialog();
 
         EndDrawing();

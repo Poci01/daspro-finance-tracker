@@ -16,8 +16,6 @@ int main(void)
     char message[128];
     char longDescription[101];
     char formatted[64];
-    RingkasanKeuangan ringkasan;
-
     CHECK(jumlah == 0);
     CHECK(!tambahPemasukan("", "Gaji", message, sizeof(message)));
     CHECK(strcmp(message, "Input harus berupa angka!") == 0);
@@ -45,10 +43,10 @@ int main(void)
     CHECK(jenis[1] == 1 && nominal[1] == 1000);
     CHECK(jenis[2] == 2 && nominal[2] == 400);
 
-    ringkasanKeuangan(&ringkasan);
-    CHECK(ringkasan.pemasukan == 1001);
-    CHECK(ringkasan.pengeluaran == 400);
-    CHECK(ringkasan.saldo == 601);
+    hitungRingkasan();
+    CHECK(totalPemasukan == 1001);
+    CHECK(totalPengeluaran == 400);
+    CHECK(saldoAkhir == 601);
     formatRupiah(1234567, formatted, sizeof(formatted));
     CHECK(strcmp(formatted, "Rp1.234.567") == 0);
 

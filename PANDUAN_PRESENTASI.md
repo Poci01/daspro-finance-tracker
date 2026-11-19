@@ -1,288 +1,353 @@
 # Panduan Presentasi Personal Finance Tracker
 
-Panduan ini dibuat dari kode di `src/main.c`, `src/finance.h`, `src/finance.c`, dan `src/ui.c`. Bahasanya sengaja dibuat sederhana supaya bisa dipakai belajar sekaligus dibaca saat presentasi.
+Panduan ini mengikuti nama variabel dan fungsi di `src/main.c`, `src/finance.h`,
+`src/finance.c`, dan `src/ui.c`. Bahasanya dibuat santai supaya mudah dipahami
+dan bisa dibaca saat presentasi.
 
 ## 1. Gambaran Umum Aplikasi
 
-Personal Finance Tracker adalah aplikasi desktop sederhana untuk mencatat uang masuk dan uang keluar. Program ini dibuat dengan bahasa C untuk melatih dasar pemrograman seperti variabel, array, fungsi, percabangan, dan perulangan; Raylib dan Raygui dipakai untuk membuat jendela dan komponen tampilannya. Pengguna mengisi nominal serta keterangan transaksi, lalu aplikasi memeriksa input, menyimpan transaksi sementara di memori, menghitung saldo, dan menampilkan ringkasan serta riwayatnya.
+Personal Finance Tracker adalah aplikasi desktop untuk mencatat uang masuk dan
+uang keluar. Programnya ditulis dengan bahasa C, sedangkan Raylib dan Raygui
+membantu membuat jendela, tombol, dan kolom input. Pengguna memasukkan nominal
+dan keterangan, program memeriksa datanya, menyimpan transaksi ke array, lalu
+menghitung saldo serta menampilkan ringkasan dan riwayat.
 
-**Contoh pembukaan presentasi:**
+**Contoh pembukaan:**
 
-> “Kami membuat Personal Finance Tracker, yaitu aplikasi sederhana untuk mencatat pemasukan dan pengeluaran. Pengguna bisa menambahkan transaksi, melihat saldo dan riwayatnya, serta mencoba validasi seperti nominal yang harus positif dan saldo yang harus cukup sebelum pengeluaran.”
+> “Kami membuat aplikasi pencatat pemasukan dan pengeluaran. Tujuannya supaya
+> pengguna bisa melihat jumlah uang masuk, uang keluar, saldo akhir, dan daftar
+> transaksi. Kami memakai C untuk logika program dan Raylib serta Raygui untuk
+> tampilannya.”
 
 ## 2. Analogi Sederhana Cara Kerja Data
 
-Bayangkan ada **buku catatan dengan tiga kolom**: jenis transaksi, nominal, dan keterangan. Buku ini punya 100 baris, dari baris nomor 0 sampai 99.
+Bayangkan ada buku catatan dengan tiga kolom dan 100 baris, bernomor 0 sampai 99.
+Setiap baris adalah satu transaksi.
 
-- `jenis[MAX]` adalah kolom pertama. Angka `1` berarti pemasukan dan `2` berarti pengeluaran.
-- `nominal[MAX]` adalah kolom kedua, untuk menyimpan jumlah uang pada baris yang sama.
-- `keterangan[MAX][100]` adalah kolom ketiga, untuk menyimpan catatan transaksi, misalnya “Uang saku”. Satu catatan dapat berisi sampai 99 karakter, karena satu ruang tambahan dipakai untuk tanda akhir teks.
-- `jumlah` adalah penghitung berapa baris yang sudah terisi. Jika nilainya 2, data yang dipakai berada di indeks 0 dan 1; baris berikutnya akan disimpan di indeks 2.
-- `MAX` bernilai 100, jadi jumlah transaksi tidak boleh melebihi 100.
+- `jenis[MAX]` adalah kolom jenis. Angka `1` berarti pemasukan dan `2` berarti
+  pengeluaran.
+- `nominal[MAX]` adalah kolom jumlah uang.
+- `keterangan[MAX][100]` adalah kolom catatan, misalnya “Uang saku”. Maksimal
+  99 karakter dipakai untuk tulisan; satu tempat tersisa untuk penanda akhir teks.
+- `jumlah` adalah penghitung banyaknya baris yang sudah terisi. Jika nilainya 2,
+  transaksi ada di indeks 0 dan 1; transaksi baru masuk di indeks 2.
+- `MAX` adalah kapasitas buku, yaitu 100 transaksi.
 
-Ketiga kolom itu disebut **array paralel**. Anggap saja seperti buku catatan yang kolom-kolomnya selalu merujuk ke baris yang sama: `jenis[0]`, `nominal[0]`, dan `keterangan[0]` adalah satu transaksi yang sama. Kalau salah satu kolom bergeser, catatannya jadi tidak cocok.
+Array disebut **array paralel** karena semua kolom menggunakan nomor baris yang
+sama. Contohnya, `jenis[0]`, `nominal[0]`, dan `keterangan[0]` adalah tiga bagian
+dari transaksi pertama. Ibarat buku catatan, ketiga kolom itu harus tetap berada
+di baris yang sama.
 
-Data aplikasi ini disimpan di memori komputer saat program berjalan. Kode yang dibaca untuk panduan ini belum menyimpan transaksi ke file, jadi transaksi akan mulai kosong lagi ketika aplikasi ditutup lalu dibuka kembali.
+Variabel `totalPemasukan`, `totalPengeluaran`, dan `saldoAkhir` adalah tempat
+menyimpan hasil hitung ringkasan. Fungsi `hitungRingkasan` mengisi ulang nilainya
+dengan membaca data transaksi.
+
+Data disimpan di memori selama aplikasi berjalan. Saat aplikasi ditutup, isi
+array tidak disimpan ke file, jadi ketika dibuka lagi daftar transaksi kembali
+kosong.
 
 **Contoh kalimat presentasi:**
 
-> “Data kami simpan seperti buku catatan dengan tiga kolom. Indeks yang sama menunjukkan satu transaksi, sedangkan variabel `jumlah` memberi tahu berapa baris yang sudah terisi.”
+> “Kami memakai array seperti buku catatan dengan tiga kolom. Nomor indeks yang
+> sama menunjukkan satu transaksi, dan `jumlah` menjadi penghitung baris yang
+> sudah terisi.”
 
 ## 3. Pembagian Peran dan Penjelasan Per File
 
-Satu anggota kelompok bisa membawakan satu file. Jika jumlah anggota lebih banyak, bagian `ui.c` bisa dibagi lagi menjadi tampilan utama dan modal/input.
+Satu anggota kelompok dapat menjelaskan satu file. Kalau anggota lebih banyak,
+bagian UI bisa dibagi menjadi tampilan halaman dan modal input.
 
-### A. `src/finance.h` — Kesepakatan antarbagian program
+### A. `src/finance.h` — Daftar data dan fungsi keuangan
 
-File ini seperti **daftar isi dan kesepakatan bersama**. File lain dapat melihat nama data dan fungsi keuangan yang tersedia tanpa perlu menyalin isi perhitungannya.
+Header bisa dianggap sebagai daftar nama data dan layanan yang boleh dipakai
+bagian program lain. Tempat penyimpanan array yang sebenarnya dibuat di
+`finance.c`.
 
-#### `MAX`, array, dan `jumlah`
+#### `MAX`, array, `jumlah`, dan total ringkasan
 
-- **Tugas utama:** Menyatakan batas transaksi dan data yang digunakan bersama.
-- **Alur:** `MAX` menetapkan kapasitas 100. Kata `extern` memberi tahu file lain bahwa data tersebut ada, tetapi tempat penyimpanan aslinya dibuat di `finance.c`.
+- **Tugas utama:** Menyatakan data bersama yang dipakai aplikasi.
+- **Alur:** `MAX` menetapkan kapasitas 100. `jenis`, `nominal`, dan `keterangan`
+  menyimpan transaksi. `jumlah` menghitung isinya. Tiga variabel `long long`
+  menyimpan total pemasukan, total pengeluaran, dan saldo.
 - **Cara ngomongnya:**
-  > “Di header ini kami menyatakan data yang dipakai bersama. `extern` ibarat memberi tahu bagian lain lokasi buku catatannya tanpa membuat buku baru.”
+  > “Di header kami menyebutkan data yang digunakan bersama. Seperti daftar
+  isi, header memberi tahu nama dan bentuk datanya, sementara isi array dibuat
+  di `finance.c`.”
 
-#### `RingkasanKeuangan`
+#### `hitungRingkasan`, `tambahPemasukan`, `tambahPengeluaran`, `formatRupiah`
 
-- **Tugas utama:** Menjadi satu wadah untuk tiga hasil hitung: `pemasukan`, `pengeluaran`, dan `saldo`.
-- **Alur:** Hasil hitung disimpan pada tiga bagian bernama. Ketiganya memakai `long long` agar total dapat menampung angka lebih besar daripada satu nominal transaksi bertipe `int`.
+- **Tugas utama:** Menyediakan nama fungsi keuangan yang bisa dipanggil UI.
+- **Alur:** `hitungRingkasan` menghitung total. Dua fungsi tambah memeriksa dan
+  menyimpan transaksi. `formatRupiah` merapikan tampilan nominal.
 - **Cara ngomongnya:**
-  > “`RingkasanKeuangan` seperti satu kotak yang punya tiga ruang: total pemasukan, total pengeluaran, dan saldo akhir.”
+  > “Daftar fungsi ini menjadi penghubung antara tampilan di `ui.c` dan aturan
+  transaksi di `finance.c`.”
 
-#### Prototipe fungsi
-
-- **Tugas utama:** Memberi tahu nama fungsi, masukan yang dibutuhkan, dan hasil yang dikembalikan.
-- **Alur:** `ringkasanKeuangan` menghitung total; `tambahPemasukan` dan `tambahPengeluaran` memvalidasi lalu mencoba menyimpan transaksi; `formatRupiah` mengubah angka menjadi teks Rupiah.
-- **Cara ngomongnya:**
-  > “Prototipe ini seperti daftar layanan yang tersedia. Isi masing-masing layanan ada di `finance.c`, sedangkan `ui.c` bisa memanggilnya melalui nama yang tercantum di sini.”
-
-### B. `src/main.c` — Pintu masuk program
-
-#### `main`
-
-- **Tugas utama:** Menjadi fungsi pertama yang dijalankan sistem operasi.
-- **Alur:** `main` memanggil `jalankanAplikasi`, lalu mengembalikan hasilnya ketika aplikasi selesai.
-- **Cara ngomongnya:**
-  > “`main` adalah pintu masuk program. Tugasnya sederhana: menyerahkan jalannya aplikasi ke `jalankanAplikasi` yang ada di modul UI.”
-
-#### Deklarasi `jalankanAplikasi`
-
-- **Tugas utama:** Memberi tahu compiler bahwa fungsi tersebut dibuat di file lain.
-- **Alur:** Deklarasi menyebutkan bahwa fungsi tidak menerima masukan dan mengembalikan angka hasil. Isi fungsinya berada di `ui.c`.
-- **Cara ngomongnya:**
-  > “Di sini kami memberi tahu bahwa `jalankanAplikasi` tersedia di bagian UI, jadi `main` dapat memanggilnya.”
-
-### C. `src/finance.c` — Aturan dan perhitungan uang
-
-#### Data transaksi
-
-- **Tugas utama:** Menyediakan tempat penyimpanan sebenarnya untuk array dan penghitung transaksi.
-- **Alur:** Semua array dibuat untuk maksimal 100 transaksi; `jumlah` dimulai dari 0 karena belum ada transaksi.
-- **Cara ngomongnya:**
-  > “Kalau header hanya memberi tahu letak datanya, di file ini array benar-benar dibuat dan penghitung transaksi dimulai dari nol.”
-
-#### `formatRupiah`
-
-- **Tugas utama:** Mengubah angka menjadi tulisan Rupiah dengan titik pemisah ribuan.
-- **Alur:** Angka dibaca dari digit paling belakang, titik ditambahkan tiap tiga digit, lalu susunannya dibalik agar urutannya kembali normal. Hasilnya ditulis sebagai teks seperti `Rp1.250.000`.
-- **Cara ngomongnya:**
-  > “Fungsi ini merapikan angka sebelum ditampilkan, supaya nominal lebih mudah dibaca, misalnya menjadi `Rp1.250.000`.”
-
-#### `ringkasanKeuangan`
-
-- **Tugas utama:** Menghitung total pemasukan, total pengeluaran, dan saldo.
-- **Alur:** Kedua total dimulai dari nol. Perulangan `for` memeriksa transaksi satu per satu sampai `jumlah`; jenis 1 ditambahkan ke pemasukan, jenis 2 ke pengeluaran. Saldo adalah pemasukan dikurangi pengeluaran.
-- **Cara ngomongnya:**
-  > “Fungsi ini membaca semua baris yang sudah terisi. Uang masuk dijumlahkan, uang keluar dijumlahkan, lalu saldo dihitung dari selisih keduanya.”
-
-#### `parseNominal` — fungsi pembantu internal
-
-- **Tugas utama:** Memeriksa apakah teks nominal benar-benar angka yang bisa masuk ke tipe `int`.
-- **Alur:** Teks kosong ditolak. Teks diubah menjadi angka; jika ada karakter yang bukan bagian angka, nilainya melewati batas, atau terjadi overflow, fungsi mengembalikan gagal.
-- **Cara ngomongnya:**
-  > “Fungsi ini seperti pemeriksa tulisan di kolom nominal: isinya harus angka yang utuh dan tidak boleh terlalu besar untuk tempat penyimpanannya.”
-
-#### `keteranganTerisi` — fungsi pembantu internal
-
-- **Tugas utama:** Memastikan keterangan tidak kosong atau hanya berisi spasi.
-- **Alur:** Karakter diperiksa satu per satu. Jika ditemukan karakter selain spasi, keterangan dianggap terisi.
-- **Cara ngomongnya:**
-  > “Pemeriksaan ini membuat input seperti beberapa spasi saja tetap dianggap kosong.”
-
-#### `validasiUmum` — fungsi pembantu internal
-
-- **Tugas utama:** Menjalankan pemeriksaan input yang sama untuk transaksi pemasukan dan pengeluaran.
-- **Alur:** Nominal harus angka, nilainya harus lebih dari nol, panjang keterangan maksimal 99 karakter, dan keterangan wajib memiliki isi.
-- **Cara ngomongnya:**
-  > “Daripada menulis pemeriksaan yang sama berkali-kali, kami mengumpulkannya di `validasiUmum` agar aturan input tetap seragam.”
-
-#### `tambahPemasukan`
-
-- **Tugas utama:** Menambahkan pemasukan jika kapasitas dan inputnya memenuhi aturan.
-- **Alur:** Pertama, kapasitas diperiksa. Lalu nominal dan keterangan divalidasi. Jika berhasil, data ditulis pada indeks `jumlah`, jenisnya diisi 1, kemudian `jumlah` dinaikkan satu. Pesan hasil dikirim kembali ke UI.
-- **Cara ngomongnya:**
-  > “Pemasukan baru disimpan setelah kapasitas dan semua input lolos pemeriksaan. Setelah disimpan, penghitung baris bertambah satu.”
-
-#### `tambahPengeluaran`
-
-- **Tugas utama:** Menambahkan pengeluaran hanya jika saldo mencukupi dan input valid.
-- **Alur:** Ringkasan dihitung lebih dulu agar saldo tersedia diketahui. Setelah cek kapasitas dan nominal, nominal dibandingkan dengan saldo. Keterangan lalu diperiksa. Jika semuanya lolos, transaksi disimpan dengan jenis 2 dan `jumlah` bertambah.
-- **Cara ngomongnya:**
-  > “Sebelum mencatat pengeluaran, program menghitung saldo dari riwayat. Kalau nominal pengeluaran lebih besar dari saldo, transaksi ditolak dan data tidak ditambahkan.”
-
-### D. `src/ui.c` — Tampilan dan interaksi pengguna
-
-File ini mengatur jendela Raylib, warna, teks, kartu, navigasi, modal, dan cara tombol/keyboard merespons. **Logika hitung dan validasi uang tetap dipanggil dari `finance.c`**, sehingga tampilan dan aturan keuangan tidak dicampur.
-
-#### Variabel tampilan dan tema
-
-- **Tugas utama:** Menyimpan warna, teks input, halaman aktif, status, fokus, dan animasi UI.
-- **Alur:** Warna disimpan sebagai kumpulan nilai merah-hijau-biru. Variabel seperti `modalMode`, `activePage`, dan `focusedField` mengingat bagian UI yang sedang aktif.
-- **Cara ngomongnya:**
-  > “Bagian atas `ui.c` menyimpan keadaan tampilan, seperti modal sedang terbuka atau halaman yang dipilih, serta warna yang dipakai aplikasi.”
-
-#### Pembantu gambar: `drawText`, `measureText`, `drawTextCentered`, `drawTextRight`
-
-- **Tugas utama:** Menampilkan dan menata teks menggunakan font aplikasi.
-- **Alur:** `drawText` menulis teks; `measureText` mengukur lebarnya; dua fungsi lainnya memakai ukuran itu untuk meratakan teks ke tengah atau ke kanan.
-- **Cara ngomongnya:**
-  > “Fungsi-fungsi ini membantu menempatkan teks dengan rapi, jadi bagian lain tidak perlu menghitung lebar tulisan sendiri.”
-
-#### `setStatus`
-
-- **Tugas utama:** Menyimpan pesan hasil transaksi untuk ditampilkan sebagai banner.
-- **Alur:** Pesan dan jenis hasil—sukses atau gagal—disalin ke variabel UI, lalu banner ditandai agar terlihat.
-- **Cara ngomongnya:**
-  > “Setelah validasi selesai, fungsi ini menyiapkan pesan yang akan dilihat pengguna, misalnya transaksi berhasil atau saldo tidak cukup.”
-
-#### `drawRounded`, `lerpColor`, dan `drawButton`
-
-- **Tugas utama:** Membuat bentuk bersudut halus dan tombol yang memberi respons visual saat diarahkan kursor.
-- **Alur:** `drawRounded` menumpuk dua bidang rounded untuk isi dan tepi. `lerpColor` mencampur warna awal dan warna hover secara bertahap. `drawButton` menggambar tombol, memperbarui animasinya, lalu memberi tahu apakah tombol diklik.
-- **Cara ngomongnya:**
-  > “Tombol tidak langsung berubah warna secara kasar. Warnanya bergerak bertahap memakai `Lerp`, seperti menggeser warna dari keadaan awal ke keadaan hover.”
-
-#### `drawWalletBadge`, `drawHeader`, `drawSummaryIcon`, dan `drawHistoryIcon`
-
-- **Tugas utama:** Menggambar identitas aplikasi, judul, tombol Keluar, dan ikon untuk navigasi bawah.
-- **Alur:** Header menampilkan badge dompet dan judul. Ikon ringkasan dibuat dari garis grafik, sementara ikon riwayat dibuat dari titik dan garis.
-- **Cara ngomongnya:**
-  > “Bagian ini menangani elemen identitas aplikasi dan ikon. Tombol Keluar membuka dialog konfirmasi, bukan langsung menutup jendela.”
-
-#### `drawBottomNavigation`
-
-- **Tugas utama:** Menggambar tab Ringkasan dan Riwayat di bagian bawah serta menangani kliknya.
-- **Alur:** Dua area dengan lebar yang sama digambar. Tab yang aktif diberi warna berbeda; saat diklik, halaman aktif diubah. Pilihan klik dimatikan ketika modal atau dialog keluar sedang terbuka.
-- **Cara ngomongnya:**
-  > “Navigasi bawah memiliki dua pilihan. Saat Riwayat dipilih, halaman berubah dan posisi gulir riwayat dikembalikan ke awal.”
-
-#### `drawSummaryCard`, `drawStatusBanner`, dan `drawTransactionList`
-
-- **Tugas utama:** Menampilkan ringkasan saldo, pesan hasil, serta kartu transaksi.
-- **Alur:** Kartu ringkasan memakai `formatRupiah` untuk menampilkan total. Banner hanya digambar jika ada aksi yang menghasilkan pesan. Daftar menampilkan placeholder saat kosong; halaman Riwayat menerima gulir mouse dan membatasi gambar agar tetap di dalam panel.
-- **Cara ngomongnya:**
-  > “Tampilan ringkasan dan riwayat mengambil data yang sama dari array transaksi. Perbedaannya, daftar di halaman Riwayat dapat digulir untuk melihat seluruh transaksi.”
-
-#### `openModal`
-
-- **Tugas utama:** Membuka formulir pemasukan atau pengeluaran dan mengatur kondisi awalnya.
-- **Alur:** Mode transaksi dipilih, pesan lama dan input dikosongkan, banner status disembunyikan, lalu fokus awal diarahkan ke kolom nominal.
-- **Cara ngomongnya:**
-  > “Saat formulir dibuka, aplikasi menyiapkan input baru dan langsung memfokuskan kolom nominal agar pengguna bisa mulai mengetik.”
-
-#### `hapusKarakterTerakhir`, `tambahKarakter`, dan `pasteClipboard`
-
-- **Tugas utama:** Mengatur penghapusan, pengetikan, dan tempel teks pada kolom modal.
-- **Alur:** Hapus karakter memastikan satu huruf UTF-8 terhapus utuh. Penambahan karakter membatasi nominal hanya ke digit dan menjaga batas ukuran kolom. Tempel clipboard dibaca karakter demi karakter melalui aturan yang sama.
-- **Cara ngomongnya:**
-  > “Input nominal difilter supaya hanya menerima angka. Kolom keterangan tetap bisa berisi teks, tetapi panjangnya dibatasi kapasitas kolom.”
-
-#### `simpanTransaksi`
-
-- **Tugas utama:** Mengirim isi modal ke fungsi keuangan yang sesuai dan menampilkan hasilnya.
-- **Alur:** Jika mode pemasukan aktif, fungsi memanggil `tambahPemasukan`; jika mode pengeluaran, memanggil `tambahPengeluaran`. Pesan hasil menjadi banner. Jika sukses, modal ditutup dan daftar diarahkan ke transaksi terbaru.
-- **Cara ngomongnya:**
-  > “UI tidak menghitung saldo sendiri. Tombol Simpan meneruskan input ke fungsi keuangan, lalu menampilkan pesan yang dikembalikan fungsi tersebut.”
-
-#### `processModalInput`
-
-- **Tugas utama:** Mengelola keyboard dan fokus selama modal terbuka.
-- **Alur:** Klik mouse memilih kolom. Ctrl+V menempel teks, Backspace menghapus, dan karakter yang diketik melewati filter. Tab berpindah kolom; Enter dari nominal berpindah ke keterangan, sedangkan Enter di keterangan menjalankan penyimpanan.
-- **Cara ngomongnya:**
-  > “Fungsi ini mengatur cara pengguna mengisi modal. Nominal hanya menerima angka, dan tombol Tab atau Enter membantu berpindah tanpa harus selalu memakai mouse.”
-
-#### `drawTextBox` dan `drawModal`
-
-- **Tugas utama:** Menggambar kolom input dan jendela formulir.
-- **Alur:** `drawTextBox` memakai `GuiTextBox` untuk tampilan kolom serta menggambar tanda fokus. `drawModal` menggambar lapisan gelap dan kartu putih; untuk pengeluaran, saldo tersedia ikut ditampilkan. Tombol Batal menutup modal, sedangkan Simpan memanggil `simpanTransaksi`.
-- **Cara ngomongnya:**
-  > “Modal pengeluaran menampilkan saldo sebelum pengguna menyimpan. Dengan begitu pengguna bisa membandingkan nominalnya dengan uang yang tersedia.”
-
-#### `drawSummaryPage` dan `drawHistoryPage`
-
-- **Tugas utama:** Menyusun isi masing-masing halaman.
-- **Alur:** Ringkasan menampilkan kartu saldo dan tiga transaksi terbaru. Riwayat menampilkan semua transaksi di panel yang dapat digulir. Keduanya menampilkan jumlah transaksi dan banner jika ada.
-- **Cara ngomongnya:**
-  > “Halaman Ringkasan memberi gambaran cepat, sedangkan halaman Riwayat dipakai untuk melihat daftar transaksi secara lengkap.”
-
-#### `drawExitDialog`
-
-- **Tugas utama:** Meminta konfirmasi sebelum aplikasi ditutup.
-- **Alur:** Dialog menampilkan ucapan terima kasih. Tombol Kembali membatalkan keluar jika dialog dibuka dari tombol aplikasi; tombol Tutup mengakhiri loop aplikasi.
-- **Cara ngomongnya:**
-  > “Sebelum keluar, program meminta konfirmasi agar pengguna tidak menutup aplikasi tanpa sengaja.”
-
-#### `configureRaygui`
-
-- **Tugas utama:** Menyetel font, ukuran teks, warna, dan garis tepi kontrol Raygui.
-- **Alur:** Font aplikasi dipasang, lalu gaya umum dan gaya kotak teks diberi warna serta ukuran yang cocok dengan tema terang.
-- **Cara ngomongnya:**
-  > “Pengaturan ini membuat kotak input Raygui memiliki tampilan yang konsisten dengan warna aplikasi.”
+### B. `src/main.c` — Titik awal program
 
 #### `jalankanAplikasi`
 
-- **Tugas utama:** Menyiapkan jendela dan menjalankan aplikasi sampai pengguna memilih keluar.
-- **Alur:** MSAA diaktifkan sebelum jendela dibuat. Font dimuat dan Raygui diatur. Di dalam loop, aplikasi memeriksa permintaan tutup, menghitung ringkasan, memproses input, lalu menggambar halaman dan modal. Setelah loop selesai, font dan jendela dibersihkan.
+- **Tugas utama:** Nama fungsi yang disediakan oleh modul UI untuk menjalankan
+  jendela aplikasi.
+- **Alur:** `main.c` memberi tahu compiler bahwa fungsi ini ada di file lain.
 - **Cara ngomongnya:**
-  > “Ini pengatur utama aplikasi. Selama loop berjalan, program terus membaca keadaan transaksi dan menggambar ulang tampilan sampai pengguna mengonfirmasi keluar.”
+  > “Fungsi tampilannya ada di `ui.c`. Di sini kami mengenalkan namanya supaya
+  > fungsi utama bisa memanggilnya.”
+
+#### `main`
+
+- **Tugas utama:** Menjadi fungsi pertama yang dijalankan komputer.
+- **Alur:** `main` memanggil `jalankanAplikasi`, lalu mengembalikan nilai hasil
+  ke sistem operasi setelah aplikasi selesai.
+- **Cara ngomongnya:**
+  > “`main` adalah pintu masuk program. Tugasnya meneruskan jalannya aplikasi ke
+  > `jalankanAplikasi`.”
+
+### C. `src/finance.c` — Penyimpanan, pemeriksaan, dan perhitungan
+
+#### Data transaksi
+
+- **Tugas utama:** Membuat array transaksi dan penghitungnya.
+- **Alur:** Array disediakan untuk 100 transaksi dan `jumlah` dimulai dari 0.
+  Variabel total ringkasan juga dibuat dan dimulai dari 0.
+- **Cara ngomongnya:**
+  > “Di file ini tempat penyimpanan dibuat. Karena belum ada catatan saat
+  > aplikasi baru dibuka, penghitung dan total uang dimulai dari nol.”
+
+#### `hitungRingkasan`
+
+- **Tugas utama:** Menghitung pemasukan, pengeluaran, dan saldo akhir.
+- **Alur:** Total pemasukan dan pengeluaran dikosongkan dulu. Perulangan `for`
+  membaca transaksi dari indeks 0 sampai `jumlah - 1`. Jenis 1 ditambahkan ke
+  pemasukan, jenis 2 ke pengeluaran, lalu saldo dihitung dengan pengurangan.
+- **Cara ngomongnya:**
+  > “Fungsi ini membaca catatan satu baris demi satu baris. Setelah semua
+  > pemasukan dan pengeluaran dijumlahkan, saldo didapat dari pemasukan
+  > dikurangi pengeluaran.”
+
+#### `parseNominal`
+
+- **Tugas utama:** Mengubah teks nominal menjadi angka tanpa memakai `strtol`.
+- **Alur:** Fungsi membaca karakter satu per satu. Kalau karakter bukan digit
+  `0` sampai `9`, input ditolak. Nilai yang terlalu besar untuk tipe `int` juga
+  ditolak. Hasil `-1` berarti input tidak valid.
+- **Cara ngomongnya:**
+  > “Nominal dibaca seperti mengeja angka per digit. Kalau ada huruf atau
+  > angkanya terlalu besar, program menolak input tersebut.”
+
+#### `keteranganTerisi`
+
+- **Tugas utama:** Memastikan keterangan tidak kosong atau hanya spasi.
+- **Alur:** Karakter diperiksa satu per satu. Jika ditemukan karakter selain
+  spasi atau tab, keterangan dianggap terisi.
+- **Cara ngomongnya:**
+  > “Pemeriksaan ini mencegah pengguna menyimpan keterangan yang isinya hanya
+  > spasi.”
+
+#### `validasiUmum`
+
+- **Tugas utama:** Memeriksa input umum yang diperlukan oleh pemasukan dan
+  pengeluaran.
+- **Alur:** Nominal harus angka dan lebih dari nol. Panjang keterangan dibatasi
+  99 karakter dan isinya tidak boleh kosong.
+- **Cara ngomongnya:**
+  > “Aturan input yang sama dikumpulkan di satu fungsi supaya pemasukan dan
+  > pengeluaran mengikuti pemeriksaan yang seragam.”
+
+#### `tambahPemasukan`
+
+- **Tugas utama:** Menyimpan pemasukan jika semua pemeriksaan berhasil.
+- **Alur:** Kapasitas diperiksa terlebih dahulu, lalu nominal dan keterangan.
+  Jika valid, data disimpan pada indeks `jumlah`, jenis diisi 1, lalu `jumlah`
+  ditambah satu.
+- **Cara ngomongnya:**
+  > “Pemasukan baru dicatat hanya jika masih ada tempat dan inputnya benar.
+  > Setelah disimpan, penghitung baris bertambah satu.”
+
+#### `tambahPengeluaran`
+
+- **Tugas utama:** Menyimpan pengeluaran jika saldo cukup dan input valid.
+- **Alur:** `hitungRingkasan` dipanggil agar saldo terbaru tersedia. Program
+  memeriksa kapasitas, nominal, kecukupan saldo, dan keterangan. Jika semuanya
+  benar, transaksi disimpan dengan jenis 2.
+- **Cara ngomongnya:**
+  > “Sebelum mencatat pengeluaran, program menghitung saldo terlebih dahulu.
+  > Kalau uang yang akan dikeluarkan lebih besar dari saldo, transaksi ditolak.”
+
+#### `formatRupiah`
+
+- **Tugas utama:** Menampilkan angka dengan awalan `Rp` dan titik pemisah ribuan.
+- **Alur:** Digit angka diambil dari belakang, titik ditambahkan tiap tiga digit,
+  lalu susunannya dibalik agar urutannya benar.
+- **Cara ngomongnya:**
+  > “Fungsi ini merapikan nominal supaya mudah dibaca, misalnya angka
+  > `1234567` ditampilkan sebagai `Rp1.234.567`.”
+
+### D. `src/ui.c` — Tampilan dan cara pengguna berinteraksi
+
+UI mengatur jendela, warna, teks, tombol, halaman, dan modal. Perhitungan uang
+tetap dilakukan oleh fungsi di `finance.c`.
+
+#### Angka `#define` dan variabel tampilan
+
+- **Tugas utama:** Menamai angka untuk kolom/halaman aktif dan mengingat keadaan
+  tampilan.
+- **Alur:** `FIELD_NOMINAL` dan nama sejenisnya adalah angka penanda fokus.
+  `PAGE_SUMMARY` dan `PAGE_HISTORY` menandai halaman aktif. Variabel lain
+  menyimpan isi input, pesan, scroll, dan animasi.
+- **Cara ngomongnya:**
+  > “Angka penanda ini menggantikan `enum`. Nama seperti `PAGE_HISTORY` membuat
+  > kita lebih mudah membaca arti angka yang dipakai program.”
+
+#### `drawText`, `measureText`, `drawTextCentered`, `drawTextRight`
+
+- **Tugas utama:** Menggambar dan mengatur posisi teks.
+- **Alur:** Satu fungsi menggambar teks, satu mengukur lebarnya, dan dua lainnya
+  memakai ukuran itu untuk meratakan teks ke tengah atau ke kanan.
+- **Cara ngomongnya:**
+  > “Fungsi pembantu ini menjaga tulisan tetap rapi, jadi posisi teks tidak
+  > perlu dihitung ulang di setiap bagian.”
+
+#### `setStatus`, `drawRounded`, `lerpColor`, `getButtonHover`, `setButtonHover`,
+`drawButton`
+
+- **Tugas utama:** Menyiapkan pesan dan menggambar bentuk serta tombol.
+- **Alur:** Status menyimpan pesan berhasil/gagal. `drawRounded` menggambar
+  kartu bersudut bulat. `lerpColor` mencampur warna. Dua fungsi hover memilih
+  nilai animasi tombol dari variabel biasa, lalu `drawButton` menggambar tombol
+  dan memeriksa klik.
+- **Cara ngomongnya:**
+  > “Bagian ini menyiapkan tampilan dasar seperti tombol, kartu, dan pesan
+  > status. Warna hover berubah bertahap agar transisinya tetap sama seperti
+  > sebelumnya.”
+
+#### `drawWalletBadge`, `drawHeader`, `drawSummaryIcon`, `drawHistoryIcon`,
+`drawBottomNavigation`
+
+- **Tugas utama:** Menggambar identitas dan navigasi aplikasi.
+- **Alur:** Header menampilkan logo sederhana, judul, dan tombol Keluar. Ikon
+  ringkasan dan riwayat digambar dari bentuk dasar. Navigasi bawah mengubah
+  halaman aktif saat tab dipilih.
+- **Cara ngomongnya:**
+  > “Bagian ini mengurus header dan navigasi. Pilihan tab hanya mengubah halaman
+  > yang terlihat, sementara pencatatan transaksi tetap memakai data yang sama.”
+
+#### `drawSummaryCard`, `drawStatusBanner`, `drawTransactionList`
+
+- **Tugas utama:** Menampilkan saldo, hasil aksi, dan daftar transaksi.
+- **Alur:** Kartu saldo mengambil angka dari variabel ringkasan global. Banner
+  muncul jika ada pesan. Daftar menampilkan placeholder saat kosong dan dapat
+  digulir pada halaman Riwayat.
+- **Cara ngomongnya:**
+  > “Fungsi-fungsi ini menampilkan data yang sudah dihitung. Daftar riwayat
+  > membaca array transaksi dan roda mouse dipakai untuk menggulir daftar.”
+
+#### `openModal`, `hapusKarakterTerakhir`, `tambahKarakter`, `pasteClipboard`
+
+- **Tugas utama:** Menyiapkan formulir dan mengatur teks yang diketik pengguna.
+- **Alur:** Modal mengosongkan kolom lalu memfokuskan nominal. Karakter nominal
+  dibatasi menjadi digit; keterangan menerima teks sampai kapasitas kolom.
+  Backspace menghapus karakter dan paste memakai aturan input yang sama.
+- **Cara ngomongnya:**
+  > “Ketika formulir dibuka, kolom nominal langsung aktif. Program memeriksa
+  > karakter sebelum memasukkannya supaya nominal hanya berisi angka.”
+
+#### `simpanTransaksi`, `processModalInput`
+
+- **Tugas utama:** Menghubungkan tombol/keyboard dengan fungsi penyimpanan.
+- **Alur:** Simpan memilih fungsi pemasukan atau pengeluaran sesuai modal.
+  Pengelola input membaca klik, tombol Tab, Enter, Backspace, dan paste. Enter
+  dari kolom keterangan menjalankan penyimpanan.
+- **Cara ngomongnya:**
+  > “UI menyerahkan pemeriksaan dan penyimpanan ke `finance.c`. Di sini kami
+  > hanya menentukan kapan fungsi itu dipanggil, misalnya saat tombol Simpan
+  > diklik atau Enter ditekan.”
+
+#### `drawTextBox`, `drawModal`
+
+- **Tugas utama:** Menggambar kolom input dan kartu modal.
+- **Alur:** Kotak teks digambar dengan Raygui dan kolom aktif diberi tanda
+  kursor. Modal pengeluaran juga menunjukkan saldo tersedia. Tombol Batal
+  menutup modal dan tombol Simpan mencatat transaksi.
+- **Cara ngomongnya:**
+  > “Modal menjadi tempat mengisi transaksi. Pada pengeluaran, saldo tersedia
+  > ditampilkan agar pengguna bisa melihat batas uang yang dapat dipakai.”
+
+#### `drawSummaryPage`, `drawHistoryPage`, `drawExitDialog`
+
+- **Tugas utama:** Menyusun konten dua halaman dan dialog keluar.
+- **Alur:** Ringkasan menampilkan kartu saldo dan transaksi terbaru. Riwayat
+  menampilkan daftar lengkap yang dapat digulir. Dialog meminta konfirmasi
+  sebelum aplikasi ditutup.
+- **Cara ngomongnya:**
+  > “Ringkasan untuk melihat gambaran cepat, Riwayat untuk memeriksa transaksi,
+  > dan dialog keluar mencegah aplikasi tertutup tanpa konfirmasi.”
+
+#### `configureRaygui`, `jalankanAplikasi`
+
+- **Tugas utama:** Mengatur gaya kontrol dan menjalankan jendela utama.
+- **Alur:** Raygui diberi font dan warna aplikasi. `jalankanAplikasi` membuat
+  jendela, memuat font, menjalankan perulangan gambar dan input, lalu
+  membersihkan resource setelah pengguna keluar.
+- **Cara ngomongnya:**
+  > “`jalankanAplikasi` adalah pengatur tampilan utama. Selama perulangannya
+  > berjalan, program memperbarui ringkasan dan menggambar ulang jendela.”
 
 ## 4. Alur Demo Aplikasi Saat Presentasi
 
-1. **Buka aplikasi.** Tunjukkan halaman Ringkasan, saldo awal Rp0, jumlah transaksi 0/100, dan tulisan “Belum ada transaksi.”
-2. **Tambah pemasukan.** Klik `+ Pemasukan`, masukkan nominal `500000`, isi keterangan `Uang saku`, lalu pilih Simpan. Tunjukkan pesan berhasil dan saldo yang berubah.
-3. **Coba pengeluaran yang gagal.** Klik `- Pengeluaran`, masukkan `600000` dengan keterangan `Belanja`, lalu Simpan. Karena saldo hanya Rp500.000, program menolak transaksi dan menampilkan pesan saldo tidak mencukupi.
-4. **Tambah pengeluaran yang berhasil.** Ulangi dengan nominal `125000` dan keterangan `Makan`. Tunjukkan bahwa saldo tersisa Rp375.000.
-5. **Coba validasi input (opsional).** Buka pemasukan dan coba nominal kosong atau `0`; tunjukkan bahwa program meminta angka yang valid dan lebih dari nol. Kolom nominal juga menolak huruf.
-6. **Lihat riwayat.** Pilih tab Riwayat di navigasi bawah. Tunjukkan transaksi yang berhasil tercatat dan bahwa transaksi gagal tidak masuk daftar. Jika transaksi sudah banyak, coba gulir dengan roda mouse.
-7. **Keluar.** Klik Keluar, tunjukkan dialog konfirmasi, lalu pilih Tutup.
+1. Buka aplikasi dan tunjukkan saldo awal Rp0 serta daftar transaksi yang masih
+   kosong.
+2. Pilih **+ Pemasukan**. Isi nominal `500000` dan keterangan `Uang saku`, lalu
+   simpan. Tunjukkan pesan berhasil dan saldo yang berubah.
+3. Pilih **- Pengeluaran**. Coba nominal `600000` dengan keterangan `Belanja`.
+   Simpan dan tunjukkan pesan bahwa saldo tidak cukup.
+4. Coba lagi pengeluaran `125000` dengan keterangan `Makan`. Tunjukkan saldo
+   akhir Rp375.000.
+5. Pilih tab **Riwayat**. Tunjukkan bahwa pemasukan dan pengeluaran yang berhasil
+   tercatat, tetapi transaksi yang gagal tidak masuk daftar.
+6. Klik **Keluar**, lalu pilih **Tutup** pada dialog konfirmasi.
 
-## 5. Bocoran Pertanyaan Dosen/Aslab dan Cara Menjawabnya
+## 5. Pertanyaan Dosen/Aslab dan Cara Menjawab
 
-### 1. Kenapa memakai array terpisah, bukan `struct` untuk setiap transaksi?
+### 1. Kenapa memakai array terpisah, bukan satu `struct`?
 
-> “Program mengikuti bentuk data dasar yang diminta: tiga array paralel. Cara ini membuat hubungan indeks mudah ditunjukkan, misalnya semua data indeks 0 adalah transaksi pertama. Kekurangannya, semua array harus selalu memakai indeks yang sama.”
+> “Kami memakai array paralel karena tugas meminta data `jenis`, `nominal`, dan
+> `keterangan` disimpan terpisah. Indeks yang sama menunjukkan satu transaksi.
+> Kekurangannya, semua array harus selalu memakai indeks yang sama.”
 
-### 2. Apa yang terjadi kalau data sudah 100?
+### 2. Apa yang terjadi kalau transaksi sudah 100?
 
-> “Sebelum menyimpan transaksi, fungsi memeriksa apakah `jumlah` sudah mencapai `MAX`. Kalau sudah 100, transaksi baru ditolak dan pesan ‘Data transaksi sudah penuh!’ ditampilkan.”
+> “Sebelum menyimpan, program mengecek `jumlah` terhadap `MAX`. Kalau sudah
+> penuh, transaksi baru ditolak dan pesan data penuh ditampilkan.”
 
-### 3. Bagaimana program memastikan saldo cukup sebelum pengeluaran?
+### 3. Bagaimana cara menghitung saldo?
 
-> “`tambahPengeluaran` memanggil `ringkasanKeuangan` untuk menghitung saldo dari semua transaksi. Nominal pengeluaran dibandingkan dengan saldo; kalau lebih besar, data tidak disimpan.”
+> “`hitungRingkasan` membaca semua transaksi. Pemasukan dijumlahkan, pengeluaran
+> dijumlahkan, lalu `saldoAkhir` diisi dari pemasukan dikurangi pengeluaran.”
 
-### 4. Mengapa `jumlah` dimulai dari 0 dan kapan nilainya berubah?
+### 4. Bagaimana program memastikan pengeluaran tidak melebihi saldo?
 
-> “Saat program mulai belum ada transaksi, jadi `jumlah` bernilai 0. Setelah transaksi berhasil disimpan, `jumlah` bertambah satu. Kalau input gagal, nilainya tidak berubah.”
+> “`tambahPengeluaran` memanggil `hitungRingkasan` terlebih dahulu. Nominal
+> pengeluaran dibandingkan dengan `saldoAkhir`; jika lebih besar, program tidak
+> menyimpan transaksi.”
 
-### 5. Apa fungsi `finance.h` dan kenapa dibutuhkan?
+### 5. Apa fungsi `#define` untuk halaman dan kolom?
 
-> “Header adalah kesepakatan nama data dan fungsi yang dipakai beberapa file. Dengan begitu `ui.c` dapat memanggil perhitungan di `finance.c` tanpa menyalin kode perhitungannya.”
+> “`#define` memberi nama pada angka penanda. Jadi kode lebih mudah dibaca:
+> `PAGE_HISTORY` lebih jelas daripada angka 1 tanpa keterangan.”
 
-### 6. Bagaimana empat file ini digabung saat dijalankan?
+### 6. Bagaimana empat file C digabung saat compile?
 
-> “`build.bat` meminta GCC mengompilasi `main.c`, `finance.c`, dan `ui.c` bersama-sama. `finance.h` disertakan oleh file C sebagai daftar deklarasi, bukan dikompilasi sebagai program tersendiri. Hasilnya adalah `finance_tracker.exe`.”
+> “`build.bat` meminta GCC mengompilasi `main.c`, `finance.c`, dan `ui.c`
+> bersama-sama. File `finance.h` disertakan oleh file C untuk mengenalkan data
+> dan fungsi yang dipakai bersama.”
 
-### 7. Apakah transaksi tetap ada setelah aplikasi ditutup?
+### 7. Kenapa teks nominal diperiksa karakter per karakter?
 
-> “Belum. Transaksi hanya disimpan di array selama aplikasi berjalan. Untuk menyimpannya setelah program ditutup, perlu ditambahkan fitur baca-tulis file, tetapi itu belum termasuk fungsi pada versi ini.”
+> “Supaya program hanya menerima digit `0` sampai `9` dan bisa menolak huruf
+> atau angka yang terlalu besar untuk tipe `int`.”
+
+### 8. Apakah transaksi tersimpan setelah aplikasi ditutup?
+
+> “Belum. Transaksi hanya ada di array selama program berjalan. Untuk menyimpan
+> data setelah aplikasi ditutup, program perlu ditambah fitur baca-tulis file.”
